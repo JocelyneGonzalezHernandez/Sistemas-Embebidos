@@ -1,0 +1,28 @@
+#include "stm32f10x.h"
+
+void delay_ms(uint16_t t);
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC; 			//OR del contenido de APB2ENR con 0xFC (Habilitar Reloj en GPIOS)
+	GPIOA->CRL = 0x33333333; 		//Configuración para hacer PA7-PA0 salidas
+	GPIOA->CRH = 0x33333333; 		//Configuración para hacer PA15-PA8 salidas
+
+	while(1)
+	{		
+		GPIOA->ODR = 0x0000; 		//0x0000 (16 pines de GPIOA en 0)
+		delay_ms(1000);			//wait 1000ms
+		GPIOA->ODR = 0xFFFF; 		//0xFFFF (16 pines de GPIOA en 1)
+		delay_ms(1000);			//wait 1000ms
+	}
+}
+
+//Delay calculdo con STM32 de 72MHz y KEIL
+void delay_ms(uint16_t t)
+{
+	volatile unsigned long l = 0;
+	for(uint16_t i = 0; i < t; i++)
+		for(l = 0; l < 6000; l++)
+		{
+		}
+}

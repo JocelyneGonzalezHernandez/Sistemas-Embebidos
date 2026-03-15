@@ -1,0 +1,44 @@
+/*Manda "Hi" por uARST1 cada segundo BR=9600 1 bit de stop APB2=72MHz*/
+
+#include "stm32f10x.h"
+
+void delay_ms(uint16_t t);
+void usart1_sendByte(unsigned char c);
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC | (1<<14); //Habilitar reloj de GPIOS y UART1
+		
+	//USART1 init.
+	GPIOA->ODR |= (1<<10);  	//pull-up en PA10
+	GPIOA->CRH = 0x444448B4; 	//RX1=PA10 con pull-up, TX1=PA9 con alt. func output
+	USART1->CR1 = 0x200C;	 	//Habilita UART y por Default frame 8 bits de dato, 1 bit Stop, sin bit paridad
+	USART1->BRR = 7500;	 	//72MHz/9600bps = 7500
+	
+	while(1)
+	{		
+		usart1_sendByte('H');
+		usart1_sendByte('i');
+		usart1_sendByte('\n'); 	//nueva línea
+		usart1_sendByte('\r'); 	//comienzo de línea
+		
+		delay_ms(1000);		//espera 1 seg
+	}
+}
+
+void usart1_sendByte(unsigned char c)
+{
+	USART1->DR = c;
+	
+	while((USART1->SR&(1<<6)) == 0);  //Espera TC=1, Transmisión completa
+	USART1->SR &= ~(1<<6);		  //Baja bandera a 0	
+}
+
+void delay_ms(uint16_t t)
+{
+	volatile unsigned long l = 0;
+	for(uint16_t i = 0; i < t; i++)
+		for(l = 0; l < 6000; l++)
+		{
+		}
+}

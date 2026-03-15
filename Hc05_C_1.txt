@@ -1,0 +1,38 @@
+/* Interrupción al recibir por USART1. Si L, PA0 = low. Si H PA0 = High */
+
+#include "stm32f10x.h"
+
+void USART1_IRQHandler()			//Subrutina de interrupción USART1
+{
+	uint8_t c = USART1->DR;			// C= dato recibido
+	
+	if((c == 'H')||(c == 'h'))
+		GPIOA->ODR |= (1<<0);		//PA0= = High
+	else
+		if((c == 'L')||(c == 'l'))
+			GPIOA->ODR &= ~(1<<0);	//PA0 = Low
+}
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC|(1<<14); 		//Habilita reloj GPIOs y usart1
+	
+	GPIOA->CRL = 0x44444443; 		//PA0 salida
+	
+	/* USART1 init. */
+	GPIOA->ODR |= (1<<10);  		//pull-up PA10
+	GPIOA->CRH = 0x444448B4; 		//RX1=entrada pull-up, TX1=alt. func salida
+	USART1->CR1 = 0x2024;			//recibe interrupción, recibe habilitado
+	USART1->BRR = 7500;	 		//72MHz/9600bps = 7500
+
+	NVIC_EnableIRQ(USART1_IRQn);		//habilita USART1 interrupt
+//	NVIC_EnableIRQ(37);			//habilita USART1 interrupt (mismo)
+//	NVIC->ISER[1] = 1<<5;			//habilita USART1 interrupt (mismo)
+
+
+	
+	while(1)
+	{			
+
+	}
+}

@@ -1,0 +1,26 @@
+#include <stm32f10x.h>
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC; 			//OR del contenido de APB2ENR con 0xFC (Habilitar Reloj en GPIOS)
+	
+	GPIOB->CRH = 0x44444844; 		//Configuración para hacer PB15-PB8 entradas, pull-up/pull-down en PB10
+
+//	GPIOB->ODR |= (1<<10); 			//Configuración de PB10 con ODR en 1 para pull-up 
+						//El led debe estar encendido y se apaga con el push button
+
+	GPIOB->ODR &= ~(1 << 10); 		//Configuración de PB10 con ODR en 0 para pull-down
+						//El led debe estar apagado y se enciende con el push button
+
+
+	
+	GPIOA->CRH = 0x44444443; 		//Configuración para hacer PA8 salida
+
+	while(1)
+	{		
+		if((GPIOB->IDR & (1<<10)) != 0) // PB10=1?
+				GPIOA->ODR |= (1 << 8); 		// PA8 prende
+		else
+				GPIOA->ODR &= ~(1 << 8); 		// PA8 apaga
+	}
+}

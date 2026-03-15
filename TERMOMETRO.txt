@@ -1,0 +1,176 @@
+#include <stm32f10x.h>
+#include <stdio.h>
+ 
+void usart1_init(void);
+void usart1_sendByte(unsigned char c);
+void usart1_sendStr(char *str);
+void usart1_sendFloat_buttonTemp(float i);
+void usart1_sendFloat_buttonTempF(float f);
+void delay_ms(uint16_t t);
+void delay_us(uint16_t t);
+ 
+volatile uint16_t adcResult;
+volatile uint8_t buttonPressedB6 = 0;
+volatile uint8_t buttonPressedB7 = 0;
+volatile uint8_t printTemperatureB6 = 0;
+volatile uint8_t printTemperatureB7 = 0;
+ 
+void ADC1_2_IRQHandler()
+{
+    adcResult = ADC1->DR; /* read conversion result */
+}
+ 
+void SysTick_Handler()
+{
+    // Verificar el estado del botón B6
+    if ((GPIOB->IDR & (1 << 6)) == 0){
+        buttonPressedB6 = 1;
+    }
+    else{
+        buttonPressedB6 = 0;
+        printTemperatureB6 = 0; // Restablecer la bandera cuando se suelta el botón
+    }
+ 
+    // Verificar el estado del botón B7
+    if ((GPIOB->IDR & (1 << 4)) == 0){
+        buttonPressedB7 = 1;
+    }
+    else{
+        buttonPressedB7 = 0;
+        printTemperatureB7 = 0; // Restablecer la bandera cuando se suelta el botón
+    }
+}
+ 
+int main()
+{
+    RCC->APB2ENR |= 0xFC | (1 << 9) | (1 << 14); /* enable clocks for GPIO, ADC1 clock, and usart1 */
+ 
+    GPIOB->CRL = 0x48484444; // Configuracion para hacer PB6 y PB7 entradas, pull-up/pull-down en PB10
+    GPIOA->CRL = 0x44444404; // PA1(ADC_IN1) as analog input
+ 
+    GPIOB->ODR &= ~(1 << 6); // pull-down en PB6
+    GPIOB->ODR &= ~(1 << 4); // Configuracion de PB7 con ODR en 0 para pull-down
+ 
+    ADC1->CR2 = 1;   /* ADON = 1 (power-up) */
+    ADC1->SQR3 = 1;
+    ADC1->SMPR2 = 7 << 3; /* SMP1 = 111 (239.5 ADC clock cycles) */
+ 
+    delay_us(1); /* wait 1us to make sure the adc module is stable */
+ 
+    usart1_init(); /* initialize the usart1 */
+ 
+    ADC1->CR1 = (1 << 5); /* EOCIE = 1 */
+ 
+    ADC1->SQR3 = 1;    /* choose channel 1 as the input */
+    ADC1->CR2 |= 1 << 1; /* CONT = 1 (Convert continuously) */
+    ADC1->CR2 |= 1 << 0; /* ADCON = 1 (start conversion) */
+ 
+    NVIC_EnableIRQ(ADC1_2_IRQn); /* enable ADC1_2 interrupt */
+ 
+    // Configuración de SysTick
+    SysTick_Config(SystemCoreClock / 1000); // Configurar interrupción cada 1 ms
+		
+		unsigned int Celcius=1;
+		unsigned int Farenheit=0;
+ 
+    while (1){
+        if (buttonPressedB6 && !printTemperatureB6){
+	        if(Celcius==1){
+						usart1_sendFloat_buttonTemp(adcResult); /* send the adc result through serial */
+            usart1_sendStr("\n\r");                 /* go to new line */
+            printTemperatureB6 = 1;                 // Establecer la bandera para evitar imprimir múltiples veces
+					} 
+					if(Farenheit==1){
+						usart1_sendFloat_buttonTempF(adcResult); /* send the adc result through serial */
+            usart1_sendStr("\n\r");                   /* go to new line */
+						printTemperatureB6 = 1;                   // Establecer la bandera para evitar imprimir múltiples veces				
+					}				
+  
+        }
+ 
+        if (buttonPressedB7 && !printTemperatureB7){
+          if(Celcius==1){
+					usart1_sendStr("--FARENHEIT--\n\r");                   /* go to new line */
+							Celcius=0;
+							Farenheit=1;
+							printTemperatureB7 = 1;                   // Establecer la bandera para evitar imprimir múltiples veces				
+					} 
+					else{
+					usart1_sendStr("--CELCIUS--\n\r");                   /* go to new line */
+							Celcius=1;
+							Farenheit=0;
+							printTemperatureB7 = 1;                   // Establecer la bandera para evitar imprimir múltiples veces										
+					}
+
+        }
+				delay_ms(500);
+    }
+}
+ 
+void usart1_init()
+{
+    //USART1 init.
+    GPIOA->ODR |= (1<<10);  //pull-up PA10
+    GPIOA->CRH = 0x444448B4; // RX1=input with pull-up, TX1=alt. func output
+    USART1->CR1 = 0x200C;
+    USART1->BRR = 7500;     // 72MHz/9600bps = 7500    
+}
+ 
+void usart1_sendByte(unsigned char c)
+{    
+    while((USART1->SR&(1<<6)) == 0);  //wait until the TC flag is set 
+    USART1->DR = c;
+}
+ 
+/* the function sends a zero ending string through USART1 */
+void usart1_sendStr(char *str)
+{
+    while(*str != 0)
+    {
+        usart1_sendByte(*str);
+        str++;
+    }
+}
+ 
+/* The function sends a number through USART1 */
+void usart1_sendFloat_buttonTemp(float i)
+{
+    float voltaje = (i * 3.3) / 4095;
+    float temperatura = voltaje * 100; //Se convierte voltaje a temperatura (10mV por °C)
+    char str[10];
+    sprintf(str, "%.2f", temperatura);
+    //i = (i * 3.3) / 4095;
+    //sprintf(str,"%2f",i);
+    usart1_sendStr(str);
+    usart1_sendStr(" C\n\r");    
+}
+ 
+void delay_ms(uint16_t t)
+{
+    for(int i = 0; i < t; i++)
+    {
+        for(volatile uint16_t a = 0; a < 6000; a++)
+        {}
+    }
+}
+ 
+void delay_us(uint16_t t)
+{
+    for(int i = 0; i < t; i++)
+    {
+        for(volatile uint16_t a = 0; a < 6; a++)
+        {}
+    }
+}
+void usart1_sendFloat_buttonTempF(float f)
+{
+    float voltaje = (f * 3.3) / 4095;
+    float temperaturaF = voltaje * 100; //Se convierte voltaje a temperatura (10mV por F)
+    temperaturaF = (temperaturaF * 1.8) + 32;
+    char str[10];
+    sprintf(str, "%.2f", temperaturaF);
+    //i = (i * 3.3) / 4095;
+    //sprintf(str,"%2f",i);
+    usart1_sendStr(str);
+    usart1_sendStr(" F\n\r");    
+}

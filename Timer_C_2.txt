@@ -1,0 +1,20 @@
+/* TIM2 genera señal con frecuencia de 5KHz*/
+
+#include <stm32f10x.h>
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC; 		//Habilita reloj GPIOs
+	RCC->APB1ENR |= (1<<0); 	//Habilita reloj en TIM2
+	GPIOA->CRL = 0x44444B44; 	//PA2: salida alternate func
+
+	TIM2->CCR3 = 200;		//cambios a 200 ciclos
+	TIM2->CCER = 0x1 << 8; 		//CC3P=0 (Active High), CC3E=1 (Salida habilitada)
+	TIM2->CCMR2 = 0x0030;  		//modo toggle
+	TIM2->ARR = 7200-1;		//Ceunta hasta 7.2k ciclos
+	TIM2->CR1 = 1;			//Conteo hacia arriba CMS=00
+	
+	while(1)
+	{
+	}
+}

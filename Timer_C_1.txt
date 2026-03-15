@@ -1,0 +1,28 @@
+/* Delay de pulso en PC13 a 1HZ (1seg), AHB=72MHz*/
+
+#include <stm32f10x.h>
+
+void delay(void);
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC; 		//Habilitar reloj GPIOs
+	RCC->APB1ENR |= (1<<0); 	//Habilitar rejlo de TIM2
+	GPIOC->CRH = 0x44344444; 	// PC13 salida
+	
+	while(1)
+	{
+		GPIOC->ODR ^= (1<<13); 	// toggle PC13
+		delay();
+	}
+}
+
+void delay()
+{
+	TIM2->PSC = 7200-1;		//PSC= 7,199; Frec=72M/PSC
+	TIM2->ARR = 10000-1;		//Conteo
+	TIM2->SR = 0;			//Borrar bandera UIF
+	TIM2->CR1 = 1;			//Conteo hacia arriba
+	while((TIM2->SR & 1) == 0);	//Esperar hasta UIF =1
+	TIM2->CR1 = 0;			//Detener conteo
+}

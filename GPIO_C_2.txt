@@ -1,0 +1,24 @@
+#include <stm32f10x.h>
+
+void delay_ms(uint16_t t);
+
+int main()
+{
+	RCC->APB2ENR |= 0xFC; 			//OR del contenido de APB2ENR con 0xFC (Habilitar Reloj en GPIOS)
+	GPIOA->CRL = 0x44444344; 		//Configuración para hacer PA2 salida
+	while(1)
+	{		
+		GPIOA->ODR ^= (1<<2); 		//EXor que alterna PA2
+		delay_ms(500);
+	}
+}
+
+//Delay calculdo con STM32 de 72MHz y KEIL
+void delay_ms(uint16_t t)
+{
+	volatile unsigned long l = 0;
+	for(uint16_t i = 0; i < t; i++)
+		for(l = 0; l < 6000; l++)
+		{
+		}
+}

@@ -1,0 +1,42 @@
+RCC_APB2ENR 	EQU 0x40021018			;Dirección en memoria del registro RCC_APB2ENR (Reloj)	
+GPIOA_CRL	EQU 0x40010800			;Dirección en memoria del registro GPIOA_CRL (Config Low)
+GPIOA_CRH	EQU 0x40010804			;Dirección en memoria del registro GPIOA_CRH (Config High)
+GPIOA_IDR	EQU 0x40010808			;Dirección en memoria del registro GPIOA_IDR (Input Data)
+GPIOA_ODR	EQU 0x4001080C			;Dirección en memoria del registro GPIOA_ODR (Output Data)
+
+	EXPORT __main
+	AREA MAIN, CODE, READONLY
+__main
+	LDR R1,=RCC_APB2ENR		;Carga en R1 dirección de RCC_APB2ENR
+	LDR R0,[R1]			;Carga en R0 contenido de APB2ENR
+	ORR R0,R0,#0xFC			;OR del contenido de APB2ENR con 0xFC (Habilitar Reloj en GPIOS)
+	STR R0,[R1]			;Cargar configuración en RCC_APB2ENR	
+	LDR R1,=GPIOA_CRL		;Carga en R1 dirección de GPIOA-CRL
+	LDR R0,=0x33333333		;Configuración para hacer PA0-PA7 salidas
+	STR R0,[R1]			;Cargar configuración en GPIOA-CRL
+	LDR R1,=GPIOA_CRH		;Carga en R1 dirección de GPIOA-CRH
+	LDR R0,=0x33333333		;Configuración para hacer PA8-PA15 salidas
+	STR R0,[R1]			;Cargar configuración en GPIOA-CRH
+
+LOOP
+	LDR R1,=GPIOA_ODR		;Carga en R1 dirección de GPIOA_ODR
+	LDR R0,=0x0000 			;0x0000 (16 pines de GPIOA en 0)
+	STR R0,[R1]			;Carga en ODR 0x0000
+	BL delay			;Se va a subrutina «delay»
+	LDR R1,=GPIOA_ODR		;Carga en R1 dirección de GPIOA_ODR
+	LDR R0,= 0xFFFF 		;0xFFFF (16 pines de GPIOA en 1)
+	STR R0,[R1]			;Carga en ODR 0xFFFF
+	BL delay			;Se va a subrutina «delay»
+	B LOOP				;Regresa a LOOP
+	
+delay
+	LDR R0,= 48			;R0 = 48, valor para delay
+d_L1	LDR R1,= 250000			;R1 = 250, 000 (para un loop de 250,000 veces)
+d_L2	SUBS R1,R1,#1		
+	BNE d_L2			
+	SUBS R0,R0,#1
+	BNE d_L1
+	BX LR				;Sale de subrutina	
+		
+	END
+

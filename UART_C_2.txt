@@ -1,0 +1,36 @@
+/*Manda "H" si PB5=1, manda "L" si PB5=0. usa uARST2 con BR=9600 1 bit de stop APB1=36MHz*/
+
+#include "stm32f10x.h"
+
+void delay_ms(uint16_t t);
+void usart2_sendByte(unsigned char c);
+
+int main()
+{
+	RCC->APB1ENR |= (1<<17); 	//prende reloj UART2
+	RCC->APB2ENR |= 0xFC; 		//prende reloj GPIOS
+	
+	GPIOB->CRL = 0x44844444;  	//habilita pull-up
+	GPIOB->ODR |= (1<<5); 	 	//pull-up en PB5
+
+	//USART2 init.
+	GPIOA->CRL = 0x44448B44; 	//RX2=PA3 con pull-up, TX2=PA2 con alt. func output
+	GPIOA->ODR |= (1<<3); 		// pull-up en PA3(RX2)
+	USART2->CR1 = 0x200C; 		// Frame 8 bits de dato, 1 bit Stop, sin bit paridad
+	USART2->BRR = 3750; 		//36MHz/9600 = 3750	
+	
+	while(1)
+	{		
+		if((GPIOB->IDR&(1<<5)) == 0) 	//es PB5=0?
+			usart2_sendByte('L');
+		else
+			usart2_sendByte('H'); 
+	}
+}
+
+void usart2_sendByte(unsigned char c)
+{
+	USART2->DR = c;				//Manda c	
+	while((USART2->SR&(1<<6)) == 0);	//Espera TC=1, Transmisión completa
+	USART2->SR &= ~(1<<6);
+}

@@ -1,0 +1,96 @@
+#include "stm32f10x.h"
+#include <stdio.h>
+#include <stdbool.h>
+
+void usart1_sendByte(unsigned char c);
+void usart1_sendString(const char *str);
+
+int main()
+{
+    uint32_t tiempo_inicio = 0;
+    uint32_t tiempo_final = 0;
+    uint32_t tiempo_transcurrido_ms = 0;
+    float tiempo_transcurrido_s = 0.0f;
+    bool conteo_iniciado = false; // Variable para controlar si el conteo ha sido iniciado o no
+
+    RCC->APB2ENR |= 0xFC | (1 << 14); // Habilitar reloj de GPIOS y UART1
+
+    // USART1 init.
+    GPIOA->ODR |= (1 << 10);        // pull-up en PA10
+    GPIOA->CRH = 0x444448B4;        // RX1=PcooA10 con pull-up, TX1=PA9 con alt. func output
+    USART1->CR1 = 0x200C;           // Habilita UART y por defecto frame de 8 bits de dato, 1 bit de parada, sin bit de paridad
+    USART1->BRR = 7500;             // 72MHz/9600bps = 7500
+
+    GPIOB->CRL = 0x33333388; // PB0-PB1 como entradas
+    GPIOB->ODR |= (1 << 1);
+    GPIOB->ODR |= (1 << 0);
+
+    // Inicialización del temporizador TIM2
+    RCC->APB1ENR |= (1 << 0); // Habilitar reloj de TIM2
+    TIM2->PSC = 7200 - 1;     // PSC= 7,199; Frec=72M/PSC
+    TIM2->ARR = 0xFFFFFFFF;   // Valor máximo de conteo
+    TIM2->CR1 = 1;            // Habilitar el temporizador
+
+    // Mensaje de bienvenida
+    usart1_sendString("\n\nPresiona 1 para comenzar el conteo\n");
+
+    while (1)
+    {
+        // Verifica el evento de inicio
+        if ((GPIOB->IDR & (1 << 1)) == 0)
+        {
+            if (!conteo_iniciado) // Verifica si el conteo ya ha sido iniciado
+            {
+                // Inicia el cronómetro solo si no se ha iniciado previamente
+                usart1_sendString("\nContando...\n");
+                tiempo_inicio = TIM2->CNT;
+                conteo_iniciado = true; // Marca el conteo como iniciado
+            }
+        }
+
+        // Verifica el evento de fin
+        if ((GPIOB->IDR & (1 << 0)) == 0)
+        {
+            if (conteo_iniciado) // Verifica si el conteo ha sido iniciado
+            {
+							// Detiene el cronómetro solo si el conteo ha sido iniciado
+							usart1_sendString("\nDETENIDO\n");
+							tiempo_final = TIM2->CNT;
+							tiempo_transcurrido_ms = tiempo_final - tiempo_inicio;
+
+							// Convertir milisegundos a segundos y centésimas de segundo
+							/*tiempo_transcurrido_s = tiempo_transcurrido_ms / 1000;
+							tiempo_transcurrido_ms = tiempo_transcurrido_ms % 1000;*/
+
+							// Imprime el tiempo transcurrido en segundos por UART
+							// Convertir milisegundos a segundos
+                tiempo_transcurrido_s = (float)tiempo_transcurrido_ms / 1000.0f;
+
+                // Imprime el tiempo transcurrido en segundos por UART
+                char buffer[50];
+                sprintf(buffer, "\nTiempo transcurrido: %.3f segundos", tiempo_transcurrido_s/10);
+                usart1_sendString(buffer);
+
+                conteo_iniciado = false; // Marca el conteo como no iniciado
+								//TIM2->SR=0;
+            }
+        }
+    }
+}
+
+void usart1_sendByte(unsigned char c)
+{
+    USART1->DR = c;
+
+    while ((USART1->SR & (1 << 6)) == 0)
+        ; // Espera TC=1, Transmisión completa
+    USART1->SR &= ~(1 << 6);               // Baja bandera a 0
+}
+
+void usart1_sendString(const char *str)
+{
+    while (*str)
+    {
+        usart1_sendByte(*str++);
+    }
+}

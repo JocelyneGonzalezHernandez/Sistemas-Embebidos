@@ -1,0 +1,25 @@
+/* Delay de pulso en PC13 a 1HZ (1seg), AHB=72MHz/8 */
+
+#include <stm32f10x.h>
+
+void delay(void);
+
+int main()
+{
+	RCC->APB2ENR = 0xFC;		//Habilitar reloj GPIOs
+	GPIOC->CRH = 0x44344444;	// PC13 salida
+	
+	while(1)
+	{
+		GPIOC->ODR ^= (1<<13);
+		delay();
+	}
+}
+
+void delay()
+{
+	SysTick->LOAD = 9000000-1;		//STRELOAD = 9M-1; delay de 1seg
+	SysTick->CTRL = 0x01;			//Clock source = 72MHZ/8 clock (bit2), Enable = 1(bit0)
+	while((SysTick->CTRL&(1<<16)) == 0); 	//espera COUNT flag=1
+	SysTick->CTRL = 0x00;			//SysTick timer stop
+}	
